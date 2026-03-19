@@ -8,10 +8,17 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # Create database if it doesn't exist
+# By default we use a local SQLite file for zero-configuration local development.
+# If you have MySQL available, set the DATABASE_URL env var to a valid SQLAlchemy URI.
+
 db_user = 'root'
-db_password = '' # Default empty for local mysql
+db_password = ''  # Default empty for local MySQL
 db_host = 'localhost'
 db_name = 'remotesurgery'
+
+# Default local SQLite database file (created automatically)
+db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'app.db'))
+default_db_url = f'sqlite:///{db_path}'
 
 try:
     conn = pymysql.connect(host=db_host, user=db_user, password=db_password)
@@ -22,13 +29,11 @@ try:
     print(f"Connected to MySQL server and using database: {db_name}")
 except Exception as e:
     print(f"Warning: Could not connect to MySQL server. Falling back to SQLite. {e}")
-    default_db_url = 'sqlite:///app.db'
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'supersecretkey'
-# Use MySQL by default with SQLite fallback, overridable via environment variable for AWS RDS
-# Use MariaDB user for EC2 deployment
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://appuser:StrongPass123@localhost/health_app'
+# Use the DATABASE_URL environment variable if set, otherwise fall back to local SQLite.
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', default_db_url)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
