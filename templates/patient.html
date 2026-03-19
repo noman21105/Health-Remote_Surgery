@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Simulator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="dashboard-layout patient-container">
+        <!-- Header -->
+        <header class="top-bar">
+            <h1>Patient Vital Simulator</h1>
+            <div class="status-indicators" style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 0.9rem; color: var(--text-muted);">Patient: {{ current_user.username }}</span>
+                <span class="badge info">Session: <span id="session-id-display">--</span></span>
+                <span id="connection-status" class="badge disconnected">🔌 Disconnected</span>
+                <a href="/logout" class="btn danger small" style="margin-left: 10px;">Logout</a>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <!-- Left Column: Patient Video Feed & Controls -->
+            <div class="video-section">
+                <div class="video-container">
+                    <video id="surgery-video" loop muted playsinline>
+                        <source src="{{ url_for('static', filename='uploads/Live_surgery.mp4') }}" type="video/mp4">
+                        Browser does not support HTML video.
+                    </video>
+                    <div class="video-overlay" id="video-overlay" style="background: rgba(0,0,0,0.7);">🎥 FEED STANDBY
+                    </div>
+                </div>
+
+                <div class="control-panel card-panel">
+                    <h3>Session Controls</h3>
+                    <div class="controls-row">
+                        <button id="start-btn" class="btn primary">Start Session</button>
+                        <button id="stop-btn" class="btn secondary" disabled>End Session</button>
+                    </div>
+                    <a href="#" id="report-link" class="btn small outline" target="_blank"
+                        style="display:none; margin-top:10px;">View Report</a>
+                </div>
+
+
+            </div>
+
+            <!-- Middle Column: Messages & Logs -->
+            <div class="suggestion-section">
+                <!-- Chat Messages from Surgeon -->
+                <div class="messages-panel card-panel" style="flex: 2; display: flex; flex-direction: column;">
+                    <h3>Surgeon Messages</h3>
+                    <div id="messages-list" class="chat-container"></div>
+                </div>
+
+                <!-- Share File with Surgeon -->
+                <div class="control-panel card-panel" style="flex: 1; margin-bottom: 0; display: flex; flex-direction: column;">
+                    <h3>Share File with Surgeon</h3>
+                    <p class="help-text" style="font-size: 0.8rem; margin-bottom: 0.5rem;">Upload reports, scans, or
+                        previous records.</p>
+                    <div class="input-group">
+                        <input type="file" id="patient-file-input" class="btn outline"
+                            style="width: 100%; border: 1px solid var(--border); padding: 0.5rem; background: #0f172a; border-radius: 6px; margin-bottom: 0.5rem;"
+                            accept=".pdf,image/*">
+                        <button id="share-file-btn" class="btn primary" disabled style="width: 100%;">Share
+                            File</button>
+                    </div>
+                    <div id="file-upload-status"
+                        style="font-size: 0.8rem; margin-top: 0.5rem; color: var(--text-muted);"></div>
+                </div>
+            </div>
+
+            <!-- Right Column: Vitals -->
+            <div class="vitals-section">
+                <h2>Simulated Vitals</h2>
+
+                <div class="vital-monitor" id="card-hr">
+                    <h3>Heart Rate</h3>
+                    <div class="value"><span id="val-hr">--</span> <small>bpm</small></div>
+                </div>
+
+                <div class="vital-monitor" id="card-o2">
+                    <h3>SpO2</h3>
+                    <div class="value"><span id="val-o2">--</span> <small>%</small></div>
+                </div>
+
+                <div class="vital-monitor" id="card-bp">
+                    <h3>Blood Pressure</h3>
+                    <div class="value"><span id="val-bpsys">--</span>/<span id="val-bpdia">--</span> <small>mmHg</small>
+                    </div>
+                </div>
+
+                <!-- Test Controls -->
+                <div class="simulator-controls card-panel" style="margin-top:auto; padding: 0.75rem;">
+                    <h3 style="font-size:0.8rem;">Force Abnormalities</h3>
+                    <div class="controls-row" style="flex-wrap: wrap;">
+                        <button id="force-hr-high" class="btn warning small">High HR</button>
+                        <button id="force-o2-low" class="btn warning small">Low O2</button>
+                    </div>
+                    <div id="stabilizer-status" class="status-msg" style="font-size:0.75rem; margin-top:5px;"></div>
+                </div>
+            </div>
+
+            <!-- Hidden Audio Element for Surgeon Voice Messages -->
+            <audio id="surgeon-audio" preload="auto"></audio>
+        </main>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='js/patient.js') }}"></script>
+</body>
+
+</html>

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surgeon Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body class="dashboard-body">
+    <div class="dashboard-layout">
+        <!-- Header -->
+        <header class="top-bar">
+            <h1>Remote Supervision Dashboard</h1>
+            <div class="status-indicators" style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 0.9rem; color: var(--text-muted);">Dr. {{ current_user.username }}</span>
+                <span class="badge info">Session: <span id="session-id">Waiting...</span></span>
+                <span id="connection-status" class="badge disconnected">🔌 Disconnected</span>
+                <button id="view-history-btn" class="btn outline small">🗂 Session History</button>
+                <a href="/logout" class="btn danger small" style="margin-left: 10px;">Logout</a>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- Left Column: Video Feed & Actions -->
+            <div class="video-section">
+                <!-- A placeholder dummy video -->
+                <div class="video-container">
+                    <video id="surgery-video" loop muted playsinline>
+                        <source src="{{ url_for('static', filename='uploads/Live_surgery.mp4') }}" type="video/mp4">
+                        Browser does not support HTML video.
+                    </video>
+                    <div class="video-overlay" id="video-overlay" style="background: rgba(0,0,0,0.7);">🎥 FEED STANDBY
+                    </div>
+                </div>
+            </div>
+
+            <!-- Middle Column: Actions & Files -->
+            <div class="suggestion-section">
+                <div class="suggestion-panel card-panel">
+                    <h3>Provide Clinical Suggestion</h3>
+                    <p class="help-text">Sending a suggestion will trigger stabilization protocols on the patient end.
+                    </p>
+                    <div class="input-group">
+                        <textarea id="suggestion-text" placeholder="Type a clinical instruction here..."></textarea>
+                    </div>
+                    <div class="controls-row">
+                        <button id="send-suggestion-btn" class="btn primary" disabled>Send Suggestion</button>
+                        <button id="record-mic-btn" class="btn secondary" disabled>🎤 Record Voice</button>
+                        <span id="recording-status"></span>
+                    </div>
+                </div>
+
+                <div class="shared-files-panel card-panel"
+                    style="margin-top: 1rem; flex: 1; display: flex; flex-direction: column;">
+                    <h3>Files Received from Patient</h3>
+                    <div id="shared-files-list" class="chat-container"
+                        style="background: #0f172a; border: 1px solid var(--border); padding: 1rem; overflow-y: auto;">
+                        <p style="color: var(--text-muted); font-size: 0.85rem; text-align: center;">No files received
+                            yet.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Vitals -->
+            <div class="vitals-section">
+                <h2>Real-Time Vitals</h2>
+
+                <div class="vital-monitor" id="s-card-hr">
+                    <h3>Heart Rate</h3>
+                    <div class="value"><span id="s-val-hr">--</span> <small>bpm</small></div>
+                    <div class="range-info">Normal: 60 - 100</div>
+                </div>
+
+                <div class="vital-monitor" id="s-card-o2">
+                    <h3>SpO2</h3>
+                    <div class="value"><span id="s-val-o2">--</span> <small>%</small></div>
+                    <div class="range-info">Normal: > 95%</div>
+                </div>
+
+                <div class="vital-monitor" id="s-card-bp">
+                    <h3>Blood Pressure</h3>
+                    <div class="value"><span id="s-val-bpsys">--</span>/<span id="s-val-bpdia">--</span>
+                        <small>mmHg</small>
+                    </div>
+                    <div class="range-info">Normal: 90-120 / 60-80</div>
+                </div>
+
+                <div class="system-status nominal" id="sys-status">
+                    SYSTEM NOMINAL
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Modal -->
+    <div id="history-modal"
+        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center;">
+        <div
+            style="background: var(--bg-dark); border: 1px solid var(--border); border-radius: 8px; width: 80%; max-width: 900px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;">
+            <div
+                style="padding: 1rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--bg-card);">
+                <h2 style="margin: 0;">Session History Vault</h2>
+                <button id="close-history-btn" class="btn small danger">Close</button>
+            </div>
+            <div style="display: flex; flex: 1; overflow: hidden;">
+                <!-- Sidebar: List of Sessions -->
+                <div style="width: 30%; border-right: 1px solid var(--border); background: var(--bg-card); overflow-y: auto; padding: 1rem;"
+                    id="history-list-container">
+                    <p style="color: var(--text-muted); font-size: 0.9rem;">Loading sessions...</p>
+                </div>
+                <!-- Main Area: Session Details -->
+                <div style="width: 70%; padding: 1.5rem; overflow-y: auto;" id="history-details-container">
+                    <h3 style="color: var(--text-muted); text-align: center; margin-top: 2rem;">Select a session from
+                        the list to view its data.</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alarm Audio -->
+    <audio id="alarm-audio" loop preload="auto">
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-alarm-tone-996.mp3" type="audio/mpeg">
+    </audio>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='js/surgeon.js') }}"></script>
+</body>
+
+</html>

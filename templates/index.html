@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remote Surgical Supervision</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body class="index-body">
+    <div class="container welcome-container">
+        <h1>Remote Surgical Supervision System</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-messages">
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        {% if current_user.is_authenticated %}
+        <p>Welcome, {{ current_user.username }}! Select your role to begin:</p>
+        <div class="role-cards">
+            {% if current_user.role == 'patient' or current_user.role == 'surgeon' %}
+            <a href="/patient" class="card card-patient">
+                <h2>Patient Simulator</h2>
+                <p>Generate vital signs and send to the dashboard.</p>
+            </a>
+            {% endif %}
+            {% if current_user.role == 'surgeon' %}
+            <a href="/surgeon" class="card card-surgeon">
+                <h2>Surgeon Dashboard</h2>
+                <p>Monitor vitals, receive alarms, and provide voice/text suggestions.</p>
+            </a>
+            {% endif %}
+        </div>
+        <div style="margin-top: 2rem;">
+            <a href="/logout" class="btn danger">Logout</a>
+        </div>
+        {% else %}
+        <p>Please log in or sign up to continue.</p>
+        <div class="auth-buttons">
+            <a href="/login" class="btn primary">Login</a>
+            <a href="/signup" class="btn secondary">Sign Up</a>
+        </div>
+        {% endif %}
+    </div>
+</body>
+
+</html>

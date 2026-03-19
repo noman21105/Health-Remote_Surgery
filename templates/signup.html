@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Sign Up - Remote Surgical Supervision</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body class="index-body">
+    <div class="container welcome-container">
+        <h1>Sign Up</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-messages">
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <form method="POST" class="auth-form">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <div class="form-group">
+                <label for="role">Role</label>
+                <select id="role" name="role" required>
+                    <option value="surgeon">Surgeon</option>
+                    <option value="patient">Patient</option>
+                </select>
+            </div>
+            <button type="submit" class="btn secondary">Sign Up</button>
+        </form>
+        <p>Already have an account? <a href="/login" style="color: var(--primary);">Login here</a></p>
+        <div style="margin-top: 1rem;">
+            <a href="/" style="color: var(--text-muted); font-size: 0.9rem;">Back to Home</a>
+        </div>
+    </div>
+</body>
+
+</html>
