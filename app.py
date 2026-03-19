@@ -27,7 +27,8 @@ except Exception as e:
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'supersecretkey'
 # Use MySQL by default with SQLite fallback, overridable via environment variable for AWS RDS
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', default_db_url)
+# Use MariaDB user for EC2 deployment
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://appuser:StrongPass123@localhost/health_app'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -381,4 +382,4 @@ log.setLevel(logging.ERROR)
 if __name__ == '__main__':
     print("Server starting...")
     print("Visit http://localhost:5000")
-    socketio.run(app, debug=False, port=5000, log_output=False)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=False, log_output=False)
