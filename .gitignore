@@ -1,6 +1,26 @@
-AWS_Setup_Guide.md
+# Environments
+venv/
 venv
+.venv/
+.venv
+env/
+ENV/
+.env
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Database
+*.db
+*.sqlite3
+
+# Uploads
+static/uploads/
+
+# User-specific
+AWS_Setup_Guide.md
 Design and extend a Remote Surgical Supe.md
 health-app-key.pem
 Procfile
-.env
