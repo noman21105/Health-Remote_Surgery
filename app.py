@@ -1,4 +1,6 @@
 import os
+from dotenv import load_dotenv
+load_dotenv()
 import datetime
 import pymysql
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
@@ -6,6 +8,51 @@ from flask_socketio import SocketIO, emit
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
+import boto3
+import json
+
+# --- AWS SDK Clients ---
+try:
+    s3_client = boto3.client("s3")
+    event_client = boto3.client("events")
+    S3_BUCKET = "remote-surgery-store"
+except Exception as e:
+    print(f"Warning: Could not initialize AWS services. {e}")
+    s3_client = None
+    event_client = None
+
+def publish_event(event_type, detail):
+    if not event_client:
+        print(f"Mock publish event: {event_type} - {detail}")
+        return
+    try:
+        event_client.put_events(
+            Entries=[
+                {
+                    "Source": "remote.surgery.system",
+                    "DetailType": event_type,
+                    "Detail": json.dumps(detail),
+                    "EventBusName": "default"
+                }
+            ]
+        )
+    except Exception as e:
+        print(f"Error publishing event to EventBridge: {e}")
+
+def upload_to_s3(file_obj, filename):
+    if not s3_client:
+        return f"/mock_s3_url/{filename}"
+    try:
+        s3_client.upload_fileobj(file_obj, S3_BUCKET, filename)
+        url = s3_client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": S3_BUCKET, "Key": filename},
+            ExpiresIn=3600
+        )
+        return url
+    except Exception as e:
+        print(f"Error uploading to S3: {e}")
+        return f"/error_s3_url/{filename}"
 
 # Create database if it doesn't exist
 # By default we use a local SQLite file for zero-configuration local development.
@@ -183,9 +230,8 @@ def upload_audio():
         return jsonify({'error': 'No selected file'}), 400
     if file:
         filename = f"audio_{int(datetime.datetime.utcnow().timestamp())}.webm"
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        file.save(filepath)
-        return jsonify({'audio_url': f'/static/uploads/{filename}'}), 200
+        s3_url = upload_to_s3(file, f"audio/{filename}")
+        return jsonify({'audio_url': s3_url}), 200
 
 @app.route('/upload_file', methods=['POST'])
 @login_required
@@ -200,16 +246,21 @@ def upload_file():
         
     if file and session_id:
         from werkzeug.utils import secure_filename
-        import shutil
-        
-        session_folder = os.path.join(UPLOAD_FOLDER, 'sessions', str(session_id))
-        os.makedirs(session_folder, exist_ok=True)
         
         filename = secure_filename(f"doc_{int(datetime.datetime.utcnow().timestamp())}_{file.filename}")
-        filepath = os.path.join(session_folder, filename)
-        file.save(filepath)
+        s3_key = f"sessions/{session_id}/{filename}"
+        s3_url = upload_to_s3(file, s3_key)
+        
+        # Publish event
+        publish_event("file_uploaded", {
+            "session_id": session_id,
+            "filename": file.filename,
+            "file_key": s3_key,
+            "file_url": s3_url
+        })
+        
         return jsonify({
-            'file_url': f'/static/uploads/sessions/{session_id}/{filename}',
+            'file_url': s3_url,
             'filename': file.filename
         }), 200
     return jsonify({'error': 'Missing file or session_id'}), 400
@@ -274,6 +325,7 @@ def handle_end_session(data):
         if session:
             end_time = datetime.datetime.utcnow()
             session.end_time = end_time
+            duration = 0
             if session.start_time:
                 duration = (end_time - session.start_time).total_seconds()
                 session.duration_seconds = int(duration)
@@ -282,6 +334,13 @@ def handle_end_session(data):
             if active_session_id == session_id:
                 active_session_id = None
             emit('session_ended', {'session_id': session_id}, broadcast=True)
+            
+            # Publish event
+            publish_event("session_completed", {
+                "session_id": session_id,
+                "duration_seconds": int(duration),
+                "end_time": end_time.isoformat()
+            })
 
 @socketio.on('vitals_update')
 def handle_vitals_update(data):
@@ -296,6 +355,21 @@ def handle_vitals_update(data):
     is_abnormal = False
     if hr < 60 or hr > 100 or o2 <= 95 or bp_sys >= 120 or bp_sys < 90 or bp_dia >= 80 or bp_dia < 60:
         is_abnormal = True
+        
+        # Publish critical vital alert
+        if session_id:
+            publish_event("critical_vital_alert", {
+                "session_id": session_id,
+                "patient_id": f"PATIENT-{session_id}",
+                "alert_type": "Abnormal Vitals Detected",
+                "timestamp": datetime.datetime.utcnow().isoformat(),
+                "vitals": {
+                    "hr": hr,
+                    "o2": o2,
+                    "bp_sys": bp_sys,
+                    "bp_dia": bp_dia
+                }
+            })
 
     if session_id:
         highest_log = VitalLog.query.filter_by(session_id=session_id, type='highest').first()
