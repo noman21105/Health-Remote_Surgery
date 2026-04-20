@@ -22,5 +22,5 @@ static/uploads/
 # User-specific
 AWS_Setup_Guide.md
 Design and extend a Remote Surgical Supe.md
-health-app-key.pem
+new.pem
 Procfile

@@ -1,4 +1,5 @@
 import os
+import sys
 from dotenv import load_dotenv
 load_dotenv()
 import datetime
@@ -26,7 +27,7 @@ def publish_event(event_type, detail):
         print(f"Mock publish event: {event_type} - {detail}")
         return
     try:
-        event_client.put_events(
+        response = event_client.put_events(
             Entries=[
                 {
                     "Source": "remote.surgery.system",
@@ -36,6 +37,15 @@ def publish_event(event_type, detail):
                 }
             ]
         )
+        
+        # Boto3 does not raise exceptions for failed entries, we must check FailedEntryCount
+        if response.get('FailedEntryCount', 0) > 0:
+            for entry in response.get('Entries', []):
+                if 'ErrorCode' in entry:
+                    print(f"EventBridge Error: {entry.get('ErrorCode')} - {entry.get('ErrorMessage')}")
+        else:
+            print(f"Published EventBridge event: {event_type}")
+            
     except Exception as e:
         print(f"Error publishing event to EventBridge: {e}")
 
@@ -88,8 +98,11 @@ db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
-# Use eventlet for async mode which is recommended for production WebSocket servers
-socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*")
+# Use 'threading' async mode for Windows compatibility.
+# eventlet has critical bugs on Windows + Python 3.12 that cause
+# ConnectionAbortedError floods when clients disconnect.
+# For Linux production, switch to async_mode='eventlet'.
+socketio = SocketIO(app, async_mode='threading', cors_allowed_origins="*")
 
 # --- Database Models ---
 
@@ -461,4 +474,4 @@ log.setLevel(logging.ERROR)
 if __name__ == '__main__':
     print("Server starting...")
     print("Visit http://localhost:5000")
-    socketio.run(app, host='0.0.0.0', port=5000, debug=False, log_output=False)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=False, allow_unsafe_werkzeug=True)
